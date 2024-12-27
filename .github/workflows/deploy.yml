@@ -29,18 +29,13 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install dbt-core dbt-duckdb
 
-      - name: Create database directories
+      - name: Create directories
         run: |
           mkdir -p dashboard/db
           mkdir -p dashboard/public/data
           mkdir -p account_analysis/target/data
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Install DBT dependencies
         working-directory: ./account_analysis
@@ -49,35 +44,30 @@ jobs:
       - name: Run DBT
         working-directory: ./account_analysis
         run: |
-          dbt debug --profiles-dir .
           dbt seed --profiles-dir .
           dbt run --full-refresh --profiles-dir .
 
-      - name: Debug DBT output
-        run: |
-          echo "Content of target directory:"
-          ls -R account_analysis/target/
-          echo "Content of data directory:"
-          ls -R account_analysis/target/data/ || true
-          echo "Content of dashboard/public/data:"
-          ls -R dashboard/public/data/ || true
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './dashboard/package-lock.json'
 
-      - name: Clean install dashboard
+      - name: Install dashboard dependencies
         working-directory: ./dashboard
         run: |
-          rm -rf node_modules package-lock.json
-          npm install
+          npm ci
+          node scripts/configure-duckdb.mjs
 
-      - name: Copy data files
+      - name: Export DBT artifacts
+        working-directory: ./account_analysis
         run: |
-          cp -r account_analysis/target/data/* dashboard/public/data/ || true
-          echo "Files in dashboard/public/data after copy:"
-          ls -la dashboard/public/data/
+          dbt run-operation export_results_to_json --args '{target_path: "../dashboard/public/data"}'
 
       - name: Build dashboard
         working-directory: ./dashboard
         run: |
-          npm run configure
           npm run build
 
       - name: Setup Pages
