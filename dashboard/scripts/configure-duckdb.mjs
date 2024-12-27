@@ -3,69 +3,74 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const sourceDir = path.resolve(__dirname, '../node_modules/@duckdb/duckdb-wasm/dist');
-const targetDir = path.resolve(__dirname, '../public');
 
-// List all files in the source directory to find the worker file
-const sourceFiles = fs.readdirSync(sourceDir);
-const workerFile = sourceFiles.find(file => file.includes('worker') && file.endsWith('.js'));
+async function configureDuckDB() {
+  const nodeModulesPath = path.join(__dirname, '..', 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
+  const publicPath = path.join(__dirname, '..', 'public');
 
-if (!workerFile) {
-    console.error('Could not find DuckDB worker file in node_modules');
-    process.exit(1);
-}
+  // Create public directory if it doesn't exist
+  if (!fs.existsSync(publicPath)) {
+    fs.mkdirSync(publicPath, { recursive: true });
+  }
 
-const requiredFiles = [
+  // Files to copy
+  const files = [
     {
-        source: 'duckdb-mvp.wasm',
-        target: 'duckdb-mvp.wasm',
-        type: 'application/wasm'
+      src: 'duckdb-mvp.wasm',
+      dest: 'duckdb-mvp.wasm'
     },
     {
-        source: workerFile,
-        target: 'duckdb-worker.js',
-        type: 'text/javascript'
+      src: 'duckdb-browser-mvp.worker.js',
+      dest: 'duckdb-worker.js'
     }
-];
+  ];
 
-// Ensure the public directory exists
-if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-}
-
-// Copy each required file
-for (const file of requiredFiles) {
-    const sourcePath = path.join(sourceDir, file.source);
-    const targetPath = path.join(targetDir, file.target);
-    
+  for (const file of files) {
     try {
-        fs.copyFileSync(sourcePath, targetPath);
-        console.log(`Successfully copied ${file.source} to ${file.target}`);
+      fs.copyFileSync(
+        path.join(nodeModulesPath, file.src),
+        path.join(publicPath, file.dest)
+      );
+      console.log(`Successfully copied ${file.src} to ${file.dest}`);
     } catch (error) {
-        console.error(`Error copying ${file.source}:`, error.message);
-        process.exit(1);
+      console.error(`Error copying ${file.src}:`, error);
+      process.exit(1);
     }
+  }
+
+  // Create vercel.json for proper MIME type configuration
+  const vercelConfig = {
+    "headers": [
+      {
+        "source": "/(.*)",
+        "headers": [
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin"
+          },
+          {
+            "key": "Cross-Origin-Embedder-Policy",
+            "value": "require-corp"
+          }
+        ]
+      },
+      {
+        "source": "/(.*).wasm",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/wasm"
+          }
+        ]
+      }
+    ]
+  };
+
+  fs.writeFileSync(
+    path.join(__dirname, '..', 'public', 'vercel.json'),
+    JSON.stringify(vercelConfig, null, 2)
+  );
+  console.log('Created vercel.json file for MIME type configuration');
 }
 
-// Create a Vite configuration file for correct MIME types
-const viteConfig = `{
-    "headers": [
-        {
-            "source": "**/*.wasm",
-            "headers": [{
-                "key": "Content-Type",
-                "value": "application/wasm"
-            }]
-        },
-        {
-            "source": "**/*.js",
-            "headers": [{
-                "key": "Content-Type",
-                "value": "text/javascript"
-            }]
-        }
-    ]
-}`;
-
-fs.writeFileSync(path.join(targetDir, 'vercel.json'), viteConfig);
-console.log('Created vercel.json file for MIME type configuration');
+configureDuckDB().catch(console.error);

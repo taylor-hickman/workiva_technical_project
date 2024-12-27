@@ -41,8 +41,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: './dashboard/package-lock.json'
 
       - name: Install DBT dependencies
         working-directory: ./account_analysis
@@ -55,26 +53,32 @@ jobs:
           dbt seed --profiles-dir .
           dbt run --full-refresh --profiles-dir .
 
-      - name: List generated files
+      - name: Debug DBT output
         run: |
-          echo "Content of target/data:"
-          ls -la account_analysis/target/data || true
+          echo "Content of target directory:"
+          ls -R account_analysis/target/
+          echo "Content of data directory:"
+          ls -R account_analysis/target/data/ || true
           echo "Content of dashboard/public/data:"
-          ls -la dashboard/public/data || true
-          echo "Content of dashboard/db:"
-          ls -la dashboard/db || true
+          ls -R dashboard/public/data/ || true
 
-      - name: Install dashboard dependencies
+      - name: Clean install dashboard
         working-directory: ./dashboard
-        run: npm ci
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
-      - name: Setup data directories
+      - name: Copy data files
         run: |
           cp -r account_analysis/target/data/* dashboard/public/data/ || true
+          echo "Files in dashboard/public/data after copy:"
+          ls -la dashboard/public/data/
 
       - name: Build dashboard
         working-directory: ./dashboard
-        run: npm run build
+        run: |
+          npm run configure
+          npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

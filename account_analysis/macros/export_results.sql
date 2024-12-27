@@ -7,21 +7,22 @@
         FROM information_schema.tables 
         WHERE table_schema = '{{ target.schema }}'
         AND table_catalog = '{{ target.database }}'
-        AND (table_type = 'BASE TABLE' OR table_type = 'VIEW');
+        AND table_name LIKE 'fact_%';
     {% endset %}
     
     {% set results = run_query(relations_query) %}
     
     {% for row in results %}
+        {% set target_path = var('json_path') ~ '/' ~ row['identifier'] ~ '.json' %}
+        {{ log("Exporting " ~ row['identifier'] ~ " to " ~ target_path, info=True) }}
         {% set query %}
             COPY (
-                SELECT * 
+                SELECT *
                 FROM {{ row['database'] }}.{{ row['schema'] }}.{{ row['identifier'] }}
             ) 
-            TO '{{ var("json_path") }}/{{ row["identifier"] }}.json'
+            TO '{{ target_path }}'
             (FORMAT JSON, ARRAY true);
         {% endset %}
         {% do run_query(query) %}
-        {{ log("Exported " ~ row['identifier'] ~ " to JSON", info=True) }}
     {% endfor %}
 {% endmacro %}
