@@ -51,13 +51,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: './dashboard/package-lock.json'
 
       - name: Install dashboard dependencies
         working-directory: ./dashboard
         run: |
-          npm ci
+          npm install -g pnpm
+          pnpm install --no-frozen-lockfile
           node scripts/configure-duckdb.mjs
 
       - name: Export DBT artifacts
@@ -67,8 +66,10 @@ jobs:
 
       - name: Build dashboard
         working-directory: ./dashboard
+        env:
+          NODE_ENV: production
         run: |
-          npm run build
+          pnpm build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
