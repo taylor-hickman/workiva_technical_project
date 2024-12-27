@@ -1,0 +1,58 @@
+name: 'account_analysis'
+version: '1.0.0'
+
+config-version: 2
+profile: 'duckdb'
+
+# Project configuration
+model-paths: ["models"]
+analysis-paths: ["analysis"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+
+# Target configuration
+target-path: "target"
+clean-targets:
+    - "target"
+    - "dbt_packages"
+    - "logs"
+
+# Project variables
+vars:
+  json_path: "target/data"
+  fiscal_year_start: 7  # July
+  top_account_percentile: 0.9
+  analysis_lookback_days: 365
+
+seeds:
+  account_analysis:
+    +database: analysis_db
+    +schema: seeds
+    +quote_columns: false 
+    accounts:
+      +column_types:
+        account_id: bigint
+        sign_up_date: bigint
+        account_type: varchar
+        location: varchar
+    orders:
+      +column_types:
+        order_id: varchar
+        opportunity_id: varchar
+        account_id: bigint
+        create_date: bigint
+        original_price: bigint
+        is_paid: varchar
+    opportunities:
+      +column_types:
+        opportunity_id: varchar
+        opportunity_name: varchar
+        account_id: bigint
+
+models:
+  +schema: analytics
+  +materialized: view
+
+on-run-end:
+  - "{{ export_results_to_json() }}"

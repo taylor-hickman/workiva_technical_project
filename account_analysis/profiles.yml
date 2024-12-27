@@ -1,0 +1,10 @@
+duckdb:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: '../dashboard/db/analysis_db.duckdb'
+      database: analysis_db  
+      extensions:
+        - parquet
+        - httpfs

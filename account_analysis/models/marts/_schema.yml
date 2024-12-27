@@ -1,0 +1,155 @@
+version: 2
+
+models:
+  - name: fact_account_summary
+    description: Core metrics for analyzing account performance over time, including key revenue and engagement metrics
+    columns:
+      - name: account_sk
+        description: Surrogate key for account identification
+        tests:
+          - unique
+          - not_null
+      - name: account_id
+        description: Natural key for account identification
+        tests:
+          - unique
+          - not_null
+      - name: account_type
+        description: Classification of the account
+        tests:
+          - not_null
+      - name: location_bucket
+        description: Simplified location categorization (North America vs All Other)
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['North America', 'All Other']
+      - name: sign_up_date
+        description: Date when the account was created
+        tests:
+          - not_null
+      - name: signup_to_first_paid_lag_days
+        description: Days between account creation and first paid order
+      - name: opportunities_since_2h
+        description: Count of opportunities in current half-year period
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: lifetime_orders
+        description: Total number of paid orders for the account
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: lifetime_gross_revenue
+        description: Total revenue from all paid orders
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: summary_key
+        description: Unique identifier for the account summary record
+        tests:
+          - unique
+          - not_null
+
+  - name: fact_opportunity_order_details
+    description: Detailed analysis of orders by opportunity type with pricing information
+    columns:
+      - name: order_sk
+        description: Surrogate key for order identification
+        tests:
+          - unique
+          - not_null
+      - name: opportunity_type
+        description: Categorized opportunity type
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['Renewal', 'Renegotiation', 'Credit Amendment', 'Additional Contract', 'New Customer', 'Other']
+      - name: original_price
+        description: Original order price
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: detail_key
+        description: Unique identifier for the order detail record
+        tests:
+          - unique
+          - not_null
+
+  - name: fact_order_revenue_metrics
+    description: Statistical metrics for analyzing order revenue patterns by opportunity type
+    columns:
+      - name: opportunity_type
+        description: Type of opportunity
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Renewal', 'Renegotiation', 'Credit Amendment', 'Additional Contract', 'New Customer', 'Other']
+      - name: mean_price
+        description: Average order price for the opportunity type
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: median_price
+        description: Median order price for the opportunity type
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: pct_25
+        description: 25th percentile of order prices
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: pct_75
+        description: 75th percentile of order prices
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: pct_99
+        description: 99th percentile of order prices
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: metric_key
+        description: Unique identifier for the revenue metric record
+        tests:
+          - unique
+          - not_null
+
+  - name: fact_opportunity_price_analysis
+    description: Aggregated price analysis metrics by opportunity type
+    columns:
+      - name: opportunity_type
+        description: Type of opportunity
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Renewal', 'Renegotiation', 'Credit Amendment', 'Additional Contract', 'New Customer', 'Other']
+      - name: opportunity_count
+        description: Count of opportunities
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: total_revenue
+        description: Total revenue by opportunity type
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: analysis_key
+        description: Unique identifier for the price analysis record
+        tests:
+          - unique
+          - not_null

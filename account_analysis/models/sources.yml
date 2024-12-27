@@ -1,0 +1,93 @@
+version: 2
+sources:
+  - name: raw
+    database: analysis_db
+    schema: main_seeds
+    tables:
+      - name: accounts
+        description: "Raw customer account data containing core account attributes and demographics"
+        columns:
+          - name: account_id
+            description: "Primary key - Unique identifier for each customer account"
+            tests:
+              - unique
+              - not_null
+          - name: account_type
+            description: "Classification of the account"
+            tests:
+              - not_null
+          - name: sign_up_date
+            description: "Date when the account was created (stored as integer)"
+            tests:
+              - not_null
+          - name: location
+            description: "Geographic location of the account"
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['North America', 'Europe', 'Asia', 'South America', 'Africa', 'Oceania', 'EMEA']
+                  config:
+                    severity: warn
+      - name: opportunities
+        description: "Sales opportunities data tracking potential revenue events"
+        columns:
+          - name: opportunity_id
+            description: "Primary key - Unique identifier for each sales opportunity"
+            tests:
+              - unique
+              - not_null
+          - name: opportunity_name
+            description: "Descriptive name of the opportunity, includes type prefix"
+            tests:
+              - not_null
+          - name: account_id
+            description: "Foreign key to accounts table"
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'accounts')
+                  field: account_id
+                  config:
+                    severity: warn
+      - name: orders
+        description: "Completed order transactions resulting from opportunities"
+        columns:
+          - name: order_id
+            description: "Primary key - Unique identifier for each order"
+            tests:
+              - unique
+              - not_null
+          - name: opportunity_id
+            description: "Foreign key to opportunities table"
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'opportunities')
+                  field: opportunity_id
+                  config:
+                    severity: warn
+          - name: account_id
+            description: "Foreign key to accounts table"
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'accounts')
+                  field: account_id
+                  config:
+                    severity: warn
+          - name: create_date
+            description: "Date when the order was created (stored as integer)"
+            tests:
+              - not_null
+          - name: original_price
+            description: "Original price of the order before any adjustments"
+            tests:
+              - not_null
+              - dbt_utils.expression_is_true:
+                  expression: "> 0"
+          - name: is_paid
+            description: "Flag indicating if the order has been paid (Y/N)"
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['Y', 'N']

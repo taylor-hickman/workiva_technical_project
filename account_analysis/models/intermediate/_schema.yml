@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: int_opportunities_enriched
+    description: Enriched opportunity data with account information and standardized opportunity types
+    columns:
+      - name: opportunity_sk
+        description: Surrogate key for opportunity identification
+        tests:
+          - unique
+          - not_null
+      - name: account_sk
+        description: Surrogate key linking to accounts
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_accounts')
+              field: account_sk
+              config:
+                severity: warn
+      - name: opportunity_type
+        description: Standardized opportunity classification
+        tests:
+          - accepted_values:
+              values: ['Renewal', 'Renegotiation', 'Credit Amendment', 'Additional Contract', 'New Customer', 'Other']
+      - name: location_bucket
+        description: Simplified location grouping
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['North America', 'All Other']
+      - name: sign_up_date
+        description: Account creation date
+        tests:
+          - not_null:
+              config:
+                severity: warn
