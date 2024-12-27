@@ -31,6 +31,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Create database directories
+        run: |
+          mkdir -p dashboard/db
+          mkdir -p dashboard/public/data
+          mkdir -p account_analysis/target/data
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -45,9 +51,18 @@ jobs:
       - name: Run DBT
         working-directory: ./account_analysis
         run: |
-          mkdir -p target/data
+          dbt debug --profiles-dir .
           dbt seed --profiles-dir .
-          dbt run --profiles-dir .
+          dbt run --full-refresh --profiles-dir .
+
+      - name: List generated files
+        run: |
+          echo "Content of target/data:"
+          ls -la account_analysis/target/data || true
+          echo "Content of dashboard/public/data:"
+          ls -la dashboard/public/data || true
+          echo "Content of dashboard/db:"
+          ls -la dashboard/db || true
 
       - name: Install dashboard dependencies
         working-directory: ./dashboard
@@ -55,8 +70,7 @@ jobs:
 
       - name: Setup data directories
         run: |
-          mkdir -p dashboard/public/data
-          cp -r account_analysis/target/data/* dashboard/public/data/
+          cp -r account_analysis/target/data/* dashboard/public/data/ || true
 
       - name: Build dashboard
         working-directory: ./dashboard

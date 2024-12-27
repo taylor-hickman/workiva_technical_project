@@ -3,8 +3,8 @@ duckdb:
   outputs:
     dev:
       type: duckdb
-      path: '../dashboard/db/analysis_db.duckdb'
-      database: analysis_db  
+      path: "{{ env_var('GITHUB_WORKSPACE', '../') }}/dashboard/db/analysis_db.duckdb"
+      database: analysis_db
       extensions:
         - parquet
         - httpfs
