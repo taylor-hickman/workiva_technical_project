@@ -23,7 +23,9 @@ export default defineConfig({
           }
         }
       }
-    }
+    },
+    assetsInlineLimit: 0,
+    copyPublicDir: true
   },
   server: {
     headers: {

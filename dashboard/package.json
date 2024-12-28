@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "prebuild": "node scripts/configure-build.js",
     "build": "vite build",
-    "preview": "vite preview"
+    "postbuild": "cp public/.nojekyll public/_headers public/vercel.json dist/"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.28.0",

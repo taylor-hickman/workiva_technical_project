@@ -5,13 +5,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -81,6 +79,19 @@ jobs:
         working-directory: ./account_analysis
         run: |
           dbt run-operation export_results_to_json --args '{target_path: "../dashboard/public/data"}'
+          
+      - name: Verify data files
+        run: |
+          echo "Checking dashboard/public/data directory:"
+          ls -la dashboard/public/data/
+          echo "File contents (first few lines of each):"
+          for f in dashboard/public/data/*.json; do
+            if [ -f "$f" ]; then
+              echo "=== $f ==="
+              head -n 5 "$f"
+              echo
+            fi
+          done
 
       - name: Build dashboard
         working-directory: ./dashboard
@@ -89,10 +100,17 @@ jobs:
         run: |
           pnpm build
 
+      - name: Verify build output
+        run: |
+          echo "Checking dist directory structure:"
+          ls -R dashboard/dist/
+          echo "Checking for WASM files:"
+          find dashboard/dist -name "*.wasm"
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
         with:
-          enablement: true  
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -102,5 +120,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
