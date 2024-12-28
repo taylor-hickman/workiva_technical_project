@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { initializeDuckDB, loadData, queryData } from '../lib/duckdb-utils';
+import { initializeDuckDB, queryData } from '../utils/duckdb-utils';
 
 const DataContext = createContext(null);
 
-export function useData() {
+function useData() {
   const context = useContext(DataContext);
   if (context === null) {
     throw new Error('useData must be used within a DataProvider');
@@ -11,7 +11,7 @@ export function useData() {
   return context;
 }
 
-export function DataProvider({ children }) {
+function DataProvider({ children }) {
   const [data, setData] = useState({
     accountMetrics: null,
     revenueDistribution: null,
@@ -21,44 +21,23 @@ export function DataProvider({ children }) {
     topAccounts: null,
     cohortAnalysis: null,
   });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    async function loadDashboardData() {
+    async function loadData() {
       try {
-        console.log('Initializing database...');
-        const { db, conn } = await initializeDuckDB();
-        console.log('Database initialized successfully');
-
-        // Load all fact tables
-        const factTables = [
-          'fact_account_summary',
-          'fact_top_revenue_accounts',
-          'fact_order_revenue_metrics',
-          'fact_opportunity_order_details',
-          'fact_emea_monthly_orders',
-          'fact_recent_top_accounts',
-          'fact_account_order_cohorts'
-        ];
-
-        console.log('Loading data files...');
-        for (const table of factTables) {
-          const dataPath = `${import.meta.env.BASE_URL}data/${table}.json`;
-          console.log(`Loading ${dataPath}...`);
-          await loadData(dataPath);
-        }
-
-        // Query the data
-        console.log('Querying data...');
+        await initializeDuckDB();
+        
         const results = await Promise.all([
-          queryData('SELECT * FROM fact_account_summary'),
-          queryData('SELECT * FROM fact_top_revenue_accounts'),
-          queryData('SELECT * FROM fact_order_revenue_metrics'),
-          queryData('SELECT * FROM fact_opportunity_order_details'),
-          queryData('SELECT * FROM fact_emea_monthly_orders'),
-          queryData('SELECT * FROM fact_recent_top_accounts'),
-          queryData('SELECT * FROM fact_account_order_cohorts')
+          queryData('SELECT * FROM main_analytics.fact_account_summary'),
+          queryData('SELECT * FROM main_analytics.fact_top_revenue_accounts'),
+          queryData('SELECT * FROM main_analytics.fact_order_revenue_metrics'),
+          queryData('SELECT * FROM main_analytics.fact_opportunity_order_details'),
+          queryData('SELECT * FROM main_analytics.fact_emea_monthly_orders'),
+          queryData('SELECT * FROM main_analytics.fact_recent_top_accounts'),
+          queryData('SELECT * FROM main_analytics.fact_account_order_cohorts')
         ]);
 
         setData({
@@ -71,14 +50,13 @@ export function DataProvider({ children }) {
           cohortAnalysis: results[6]
         });
       } catch (err) {
-        console.error('Error loading data:', err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     }
 
-    loadDashboardData();
+    loadData();
   }, []);
 
   if (error) {
@@ -109,3 +87,5 @@ export function DataProvider({ children }) {
     </DataContext.Provider>
   );
 }
+
+export { DataProvider, useData };
