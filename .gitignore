@@ -9,7 +9,6 @@ logs/
 
 # Node
 node_modules/
-dist/
 .env.local
 .env.*.local
 
@@ -25,7 +24,6 @@ node_modules/
 dbt_packages/
 
 # Build files
-dist/
 .temp/
 .cache/
 
@@ -210,7 +208,6 @@ coverage/
 
 # Production
 build/
-dist/
 
 # Misc
 .DS_Store
