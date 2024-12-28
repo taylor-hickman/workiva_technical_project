@@ -33,5 +33,5 @@
         {{ log("Finished exporting " ~ row['identifier'], info=True) }}
     {% endfor %}
 
-    {{ return('Done exporting JSON files') }}
+    {{ log("JSON export completed", info=True) }}
 {% endmacro %}

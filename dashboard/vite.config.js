@@ -25,7 +25,8 @@ export default defineConfig({
       }
     },
     assetsInlineLimit: 0,
-    copyPublicDir: true
+    copyPublicDir: true,
+    outDir: 'dist'
   },
   server: {
     headers: {
@@ -35,5 +36,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['@duckdb/duckdb-wasm']
-  }
+  },
+  publicDir: 'public'
 });

@@ -78,21 +78,63 @@ jobs:
       - name: Export DBT artifacts
         working-directory: ./account_analysis
         run: |
-          dbt run-operation export_results_to_json --args '{target_path: "../dashboard/public/data"}'
+          echo "Creating data directory..."
+          mkdir -p "../dashboard/public/data"
+          echo "Directory created. Contents:"
+          ls -la "../dashboard/public/data"
           
-      - name: Verify data files
-        run: |
-          echo "Checking dashboard/public/data directory:"
-          ls -la dashboard/public/data/
-          echo "File contents (first few lines of each):"
-          for f in dashboard/public/data/*.json; do
+          echo "Running DBT export operation..."
+          dbt run-operation export_results_to_json --args '{target_path: "../dashboard/public/data"}' --debug
+          
+          echo "Export completed. Directory contents:"
+          ls -la "../dashboard/public/data"
+          
+          echo "Verifying JSON files..."
+          for f in ../dashboard/public/data/*.json; do
             if [ -f "$f" ]; then
-              echo "=== $f ==="
-              head -n 5 "$f"
-              echo
+              echo "Found file: $f"
+              echo "File size: $(stat -f%z "$f") bytes"
+              echo "First few lines:"
+              head -n 3 "$f"
+              echo "---"
             fi
           done
-
+          
+      
+      - name: Verify build artifacts
+        run: |
+          echo "=== Source Data Files ==="
+          echo "dashboard/public/data contents:"
+          ls -la dashboard/public/data/
+          
+          echo "=== Build Output ==="
+          echo "dashboard/dist contents:"
+          ls -la dashboard/dist/
+          
+          echo "=== Asset Files ==="
+          echo "dashboard/dist/assets contents:"
+          ls -la dashboard/dist/assets/
+          
+          echo "=== WASM Files ==="
+          find dashboard/dist -name "*.wasm"
+          
+          echo "=== Verifying public data files are copied ==="
+          if [ -d "dashboard/dist/data" ]; then
+            echo "Data directory exists in dist"
+            ls -la dashboard/dist/data/
+          else
+            echo "Creating data directory in dist"
+            mkdir -p dashboard/dist/data
+            cp -r dashboard/public/data/* dashboard/dist/data/
+            echo "Files copied. Contents:"
+            ls -la dashboard/dist/data/
+          fi
+          
+          echo "=== Verifying required files ==="
+          [ -f "dashboard/dist/.nojekyll" ] || touch dashboard/dist/.nojekyll
+          [ -f "dashboard/dist/vercel.json" ] || cp dashboard/public/vercel.json dashboard/dist/
+          echo "Required files check complete"
+          
       - name: Build dashboard
         working-directory: ./dashboard
         env:
