@@ -36,6 +36,18 @@ jobs:
           mkdir -p dashboard/db
           mkdir -p dashboard/public/data
           mkdir -p account_analysis/target/data
+          mkdir -p dashboard/src/lib
+
+      - name: Create utils file
+        run: |
+          cat > dashboard/src/lib/utils.js << 'EOL'
+          import { clsx } from 'clsx';
+          import { twMerge } from 'tailwind-merge';
+
+          export function cn(...inputs) {
+            return twMerge(clsx(inputs));
+          }
+          EOL
 
       - name: Install DBT dependencies
         working-directory: ./account_analysis
