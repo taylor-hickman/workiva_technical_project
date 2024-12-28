@@ -19,10 +19,6 @@ dist/
 *.duckdb.tmp
 *.duckdb.meta
 
-# Generated data
-dashboard/public/data/
-dashboard/db/
-account_analysis/target/
 
 # Dependencies
 node_modules/
@@ -64,11 +60,9 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
-
 lib64/
 parts/
 sdist/
