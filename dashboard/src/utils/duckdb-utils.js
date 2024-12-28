@@ -1,169 +1,107 @@
-// src/utils/duckdb-utils.js
+// src/lib/duckdb-utils.js
 import * as duckdb from '@duckdb/duckdb-wasm';
 import duckdb_wasm from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
-import duckdb_worker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
+import mvp_worker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
+import duckdb_wasm_eh from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
+import eh_worker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 
-let db;
-let connection;
+let db = null;
+let conn = null;
 
-// Initialize WebAssembly exception tag
-const initWebAssemblyTag = () => {
-  if (!('Tag' in WebAssembly)) {
-    console.warn('WebAssembly.Tag is not supported in this environment');
-    return;
-  }
-  
-  try {
-    globalThis.__cpp_exception = new WebAssembly.Tag({ parameters: ['externref'] });
-  } catch (error) {
-    console.error('Failed to initialize WebAssembly.Tag:', error);
-  }
-};
+export async function initializeDuckDB() {
+  if (db) return { db, conn };
 
-export const initializeDuckDB = async () => {
   try {
     console.log('Initializing DuckDB...');
-    
-    initWebAssemblyTag();
 
-    // For GitHub Pages, we need to use the repo-relative path
-    const repoBase = import.meta.env.BASE_URL || '/';
-    
-    // Bundle the WASM files with Vite
-    const DUCKDB_CONFIG = {
-      mainModule: duckdb_wasm,
-      mainWorker: duckdb_worker
+    const MANUAL_BUNDLES = {
+      mvp: {
+        mainModule: duckdb_wasm,
+        mainWorker: mvp_worker,
+      },
+      eh: {
+        mainModule: duckdb_wasm_eh,
+        mainWorker: eh_worker,
+      },
     };
 
-    // Initialize logger
+    // Select a bundle based on browser checks
+    const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+    console.log('Selected bundle:', bundle.name);
+
+    // Instantiate the async version of DuckDB-wasm
+    const worker = new Worker(bundle.mainWorker);
     const logger = new duckdb.ConsoleLogger();
-    
-    // Create a new worker
-    const worker = new Worker(DUCKDB_CONFIG.mainWorker);
-    
-    // Initialize the database
     db = new duckdb.AsyncDuckDB(logger, worker);
-    
-    await db.instantiate({
-      mainModule: DUCKDB_CONFIG.mainModule,
-      accelerate: false,
-      query: {
-        castBigIntToDouble: true
-      }
-    });
+    await db.instantiate(bundle.mainModule);
 
-    connection = await db.connect();
-    
-    await initializeDatabase();
+    // Create a connection
+    conn = await db.connect();
     console.log('DuckDB initialized successfully');
-    return true;
 
+    return { db, conn };
   } catch (error) {
-    console.error('Database initialization error:', error);
-    await closeConnection();
-    throw error;
-  }
-};
-
-async function initializeDatabase() {
-  if (!connection) {
-    throw new Error('No database connection available');
-  }
-
-  try {
-    await connection.query(`CREATE SCHEMA IF NOT EXISTS main_analytics;`);
-    
-    const tables = [
-      'fact_account_summary',
-      'fact_top_revenue_accounts',
-      'fact_order_revenue_metrics',
-      'fact_opportunity_order_details',
-      'fact_emea_monthly_orders',
-      'fact_recent_top_accounts',
-      'fact_account_order_cohorts'
-    ];
-
-    // For GitHub Pages, we need to use the repo-relative path
-    const repoBase = import.meta.env.BASE_URL || '/';
-
-    for (const table of tables) {
-      try {
-        const response = await fetch(`${repoBase}data/${table}.json`);
-        if (!response.ok) {
-          console.warn(`Failed to fetch ${table}.json: ${response.statusText}`);
-          continue;
-        }
-        
-        const data = await response.json();
-        if (!Array.isArray(data) || data.length === 0) {
-          console.warn(`No data found for ${table}`);
-          continue;
-        }
-
-        await createAndPopulateTable(table, data);
-      } catch (error) {
-        console.error(`Error loading ${table}:`, error);
-      }
-    }
-  } catch (error) {
-    console.error('Error initializing database:', error);
+    console.error('Error initializing DuckDB:', error);
     throw error;
   }
 }
 
-async function createAndPopulateTable(tableName, data) {
-  const columnDefinitions = Object.entries(data[0])
-    .map(([key, value]) => {
-      const type = typeof value === 'number' ? 'DOUBLE' : 'VARCHAR';
-      return `"${key}" ${type}`;
-    })
-    .join(', ');
-
-  await connection.query(`
-    DROP TABLE IF EXISTS main_analytics.${tableName};
-    CREATE TABLE main_analytics.${tableName} (${columnDefinitions});
-  `);
-
-  // Use batch insert for better performance
-  const batchSize = 1000;
-  for (let i = 0; i < data.length; i += batchSize) {
-    const batch = data.slice(i, i + batchSize);
-    const values = batch.map(row => `(${Object.values(row).map(v => 
-      typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v).join(', ')})`).join(', ');
-    
-    await connection.query(`
-      INSERT INTO main_analytics.${tableName} VALUES ${values}
-    `);
-  }
-}
-
-export const queryData = async (query) => {
-  if (!connection) {
+export async function queryData(query) {
+  if (!conn) {
     throw new Error('Database connection not initialized');
   }
   
   try {
-    const result = await connection.query(query);
+    const result = await conn.query(query);
     return result.toArray();
   } catch (error) {
     console.error('Query execution error:', error);
     throw error;
   }
-};
+}
 
-export const closeConnection = async () => {
+export async function loadData(dataPath) {
+  if (!conn) {
+    throw new Error('Database connection not initialized');
+  }
+
   try {
-    if (connection) {
-      await connection.close();
-      connection = null;
+    // First, create the fact tables schema
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS fact_account_summary (
+        account_id BIGINT,
+        sign_up_date BIGINT,
+        first_order_date BIGINT,
+        lifetime_gross_revenue DOUBLE
+      )
+    `);
+
+    // Load the JSON data
+    const response = await fetch(dataPath);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${dataPath}: ${response.statusText}`);
     }
-    if (db) {
-      await db.terminate();
-      db = null;
+
+    const data = await response.json();
+    console.log(`Loaded data from ${dataPath}:`, data.slice(0, 2));
+
+    // Insert the data
+    for (const row of data) {
+      await conn.query({
+        sql: `INSERT INTO fact_account_summary VALUES (?, ?, ?, ?)`,
+        parameters: [
+          row.account_id,
+          row.sign_up_date,
+          row.first_order_date,
+          row.lifetime_gross_revenue
+        ]
+      });
     }
-    console.log('Database connection closed successfully');
+
+    console.log(`Successfully loaded ${data.length} rows from ${dataPath}`);
+    return data.length;
   } catch (error) {
-    console.error('Error closing database connection:', error);
+    console.error('Error loading data:', error);
     throw error;
   }
-};
+}
